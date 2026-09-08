@@ -5,7 +5,7 @@ import {
   getRefreshExpiryMs,
   signAccessToken,
   signRefreshToken,
-  verifyToken,
+  verifyRefreshToken,
 } from "../../utils/jwt.js";
 import type { LoginInput, RegisterInput } from "./schema.js";
 
@@ -88,7 +88,7 @@ export async function login(data: LoginInput) {
 export async function refresh(refreshToken: string) {
   let payload;
   try {
-    payload = verifyToken(refreshToken);
+    payload = verifyRefreshToken(refreshToken);
   } catch {
     throw new AppError(401, "Refresh token tidak valid");
   }

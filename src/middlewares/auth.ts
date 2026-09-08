@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/prisma.js";
-import { verifyToken } from "../utils/jwt.js";
+import { verifyAccessToken } from "../utils/jwt.js";
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
@@ -14,7 +14,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   let payload;
   try {
-    payload = verifyToken(token);
+    payload = verifyAccessToken(token);
   } catch {
     res.status(401).json({ success: false, message: "Unauthorized: token tidak valid atau kedaluwarsa" });
     return;

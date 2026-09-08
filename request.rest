@@ -1,9 +1,5 @@
 ### =========================================================
 ### SERVICE RBAC — REST Client Test File
-### Extension VSCode yang dibutuhkan: "REST Client" (humao.rest-client)
-### Cara pakai: klik "Send Request" di atas tiap blok, urut dari atas ke bawah.
-### Setelah login, copy accessToken ke variable @token di bawah supaya request
-### yang butuh auth otomatis terpakai.
 ### =========================================================
 
 @baseUrl = http://localhost:5001/rbac

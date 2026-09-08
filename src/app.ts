@@ -1,9 +1,9 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import morgan from "morgan";
 import { env } from "./config/env.js";
-import { prisma } from "./config/prisma.js";
-import { errorHandler, notFoundHandler } from "./middlewares/error.js";
+import { errorHandler, notFoundHandler } from "./middlewares/error-handler.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { menusRouter } from "./modules/menus/routes.js";
 import { rolesRouter } from "./modules/roles/routes.js";
@@ -16,14 +16,12 @@ export function createApp() {
   app.use(cors({ origin: env.CORS_ORIGIN.split(",") }));
   app.use(express.json());
 
-  app.get("/health", async (_req, res) => {
-    try {
-      // $queryRaw tagged template: parameterized, bebas dari SQL injection
-      await prisma.$queryRaw`SELECT 1`;
-      res.json({ status: "OK", service: "RBAC Service", database: "Connected" });
-    } catch {
-      res.status(500).json({ status: "ERROR", service: "RBAC Service", database: "Disconnected" });
-    }
+  if (env.NODE_ENV === "development") {
+    app.use(morgan("dev"));
+  }
+
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", service: "rbac" });
   });
 
   app.use("/rbac/auth", authRouter);

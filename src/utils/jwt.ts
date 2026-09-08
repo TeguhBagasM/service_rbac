@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
@@ -42,13 +43,18 @@ export function signRefreshToken(user: { id: number; email: string; roleId: numb
     roleId: user.roleId,
     type: "refresh",
   };
-  return jwt.sign(payload, env.JWT_SECRET, {
+  return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
     expiresIn: durationToSeconds(env.JWT_REFRESH_EXPIRES, DEFAULT_REFRESH_SECONDS),
+    jwtid: randomUUID(),
   });
 }
 
-export function verifyToken(token: string): TokenPayload {
+export function verifyAccessToken(token: string): TokenPayload {
   return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
+}
+
+export function verifyRefreshToken(token: string): TokenPayload {
+  return jwt.verify(token, env.JWT_REFRESH_SECRET) as TokenPayload;
 }
 
 export function getRefreshExpiryMs(): number {
