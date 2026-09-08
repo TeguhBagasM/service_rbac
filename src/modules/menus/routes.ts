@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "../../middlewares/auth.js";
-import { requireRole } from "../../middlewares/role.js";
+import { authenticate } from "../../middlewares/authenticate.js";
+import { authorize } from "../../middlewares/authorize.js";
 import { validateBody, validateParams } from "../../middlewares/validate.js";
 import { idParamSchema } from "../../utils/schemas.js";
 import { createMenuHandler, listMenusHandler, updateMenuHandler } from "./controller.js";
@@ -8,7 +8,7 @@ import { createMenuSchema, updateMenuSchema } from "./schema.js";
 
 export const menusRouter = Router();
 
-menusRouter.use(requireAuth, requireRole("Admin"));
+menusRouter.use(authenticate, authorize("Admin"));
 
 menusRouter.get("/", listMenusHandler);
 menusRouter.post("/", validateBody(createMenuSchema), createMenuHandler);

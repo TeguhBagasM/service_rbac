@@ -19,14 +19,13 @@ GET {{apiRoot}}/health
 ### AUTH — Register, Login, Refresh, Logout, Change Password
 ### -------------------------------------------------------
 
-### Register applicant baru
+### Register applicant baru (password random digenerate server + dikirim via mock email)
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
   "name": "Teguh Bagas Test",
-  "email": "teguh@test.com",
-  "password": "password123"
+  "email": "teguh@test.com"
 }
 
 
@@ -36,8 +35,7 @@ Content-Type: application/json
 
 {
   "name": "Duplikat Test",
-  "email": "teguh@test.com",
-  "password": "password123"
+  "email": "teguh@test.com"
 }
 
 

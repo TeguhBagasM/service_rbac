@@ -28,7 +28,7 @@ export function validateQuery(schema: ZodTypeAny) {
       respondInvalid(res, result.error);
       return;
     }
-    req.query = result.data as Request["query"];
+    Object.assign(req.query, result.data);
     next();
   };
 }

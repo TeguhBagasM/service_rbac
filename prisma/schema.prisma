@@ -11,6 +11,7 @@ model User {
   name           String
   email          String         @unique
   passwordHash   String         @map("password_hash")
+  isActive       Boolean        @default(true) @map("is_active")
   isInternal     Boolean        @default(false) @map("is_internal")
   roleId         Int?           @map("role_id")
   role           Role?          @relation(fields: [roleId], references: [id])
@@ -53,7 +54,7 @@ model RoleMenuAccess {
 
 model RefreshToken {
   id        Int      @id @default(autoincrement())
-  token     String   @unique @db.VarChar(512)
+  tokenHash String   @unique @db.VarChar(64) @map("token_hash")
   userId    Int      @map("user_id")
   user      User     @relation(fields: [userId], references: [id])
   expiresAt DateTime @map("expires_at")

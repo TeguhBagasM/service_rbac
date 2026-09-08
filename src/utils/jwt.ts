@@ -1,13 +1,18 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
 export interface TokenPayload {
-  sub: string;
   userId: number;
-  email: string;
   roleId: number | null;
+  roleName: string | null;
   type: "access" | "refresh";
+}
+
+export interface TokenUser {
+  id: number;
+  roleId: number | null;
+  roleName: string | null;
 }
 
 const DEFAULT_ACCESS_SECONDS = 15 * 60;
@@ -22,12 +27,11 @@ function durationToSeconds(value: string, fallback: number): number {
   return Number(match[1]) * unit;
 }
 
-export function signAccessToken(user: { id: number; email: string; roleId: number | null }): string {
+export function generateAccessToken(user: TokenUser): string {
   const payload: TokenPayload = {
-    sub: String(user.id),
     userId: user.id,
-    email: user.email,
     roleId: user.roleId,
+    roleName: user.roleName,
     type: "access",
   };
   return jwt.sign(payload, env.JWT_SECRET, {
@@ -35,12 +39,11 @@ export function signAccessToken(user: { id: number; email: string; roleId: numbe
   });
 }
 
-export function signRefreshToken(user: { id: number; email: string; roleId: number | null }): string {
+export function generateRefreshToken(user: TokenUser): string {
   const payload: TokenPayload = {
-    sub: String(user.id),
     userId: user.id,
-    email: user.email,
     roleId: user.roleId,
+    roleName: user.roleName,
     type: "refresh",
   };
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
@@ -59,4 +62,8 @@ export function verifyRefreshToken(token: string): TokenPayload {
 
 export function getRefreshExpiryMs(): number {
   return durationToSeconds(env.JWT_REFRESH_EXPIRES, DEFAULT_REFRESH_SECONDS) * 1000;
+}
+
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }

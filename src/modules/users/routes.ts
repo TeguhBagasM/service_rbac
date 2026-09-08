@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { requireAuth } from "../../middlewares/auth.js";
-import { requireRole } from "../../middlewares/role.js";
-import { validateBody, validateParams } from "../../middlewares/validate.js";
+import { authenticate } from "../../middlewares/authenticate.js";
+import { authorize } from "../../middlewares/authorize.js";
+import { validateBody, validateParams, validateQuery } from "../../middlewares/validate.js";
+import { meHandler } from "../auth/controller.js";
 import {
   createUserHandler,
   getUserHandler,
@@ -9,14 +10,16 @@ import {
   removeUserHandler,
   updateUserHandler,
 } from "./controller.js";
-import { createUserSchema, updateUserSchema } from "./schema.js";
+import { createUserSchema, listUsersQuerySchema, updateUserSchema } from "./schema.js";
 import { idParamSchema } from "../../utils/schemas.js";
 
 export const usersRouter = Router();
 
-usersRouter.use(requireAuth, requireRole("Admin"));
+usersRouter.get("/me", authenticate, meHandler);
 
-usersRouter.get("/", listUsersHandler);
+usersRouter.use(authenticate, authorize("Admin"));
+
+usersRouter.get("/", validateQuery(listUsersQuerySchema), listUsersHandler);
 usersRouter.get("/:id", validateParams(idParamSchema), getUserHandler);
 usersRouter.post("/", validateBody(createUserSchema), createUserHandler);
 usersRouter.put("/:id", validateParams(idParamSchema), validateBody(updateUserSchema), updateUserHandler);

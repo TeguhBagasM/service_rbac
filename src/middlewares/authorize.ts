@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
-export function requireRole(...roles: string[]) {
+export function authorize(...allowedRoles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       res.status(401).json({ success: false, message: "Unauthorized" });
@@ -8,7 +8,9 @@ export function requireRole(...roles: string[]) {
     }
 
     const roleName = req.user.roleName;
-    if (!roleName || !roles.includes(roleName)) {
+    const allowed = roleName && allowedRoles.some((r) => r.toLowerCase() === roleName.toLowerCase());
+
+    if (!allowed) {
       res.status(403).json({ success: false, message: "Forbidden: role tidak diizinkan" });
       return;
     }

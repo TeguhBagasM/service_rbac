@@ -1,18 +1,21 @@
 import { prisma } from "../../config/prisma.js";
 import { AppError } from "../../utils/AppError.js";
-import { hashPassword, verifyPassword } from "../../utils/bcrypt.js";
+import { comparePassword, hashPassword } from "../../utils/hash.js";
 import {
+  generateAccessToken,
+  generateRefreshToken,
   getRefreshExpiryMs,
-  signAccessToken,
-  signRefreshToken,
+  hashToken,
   verifyRefreshToken,
 } from "../../utils/jwt.js";
-import type { LoginInput, RegisterInput } from "./schema.js";
+import { sendCredentialEmail } from "../../utils/mailer.js";
+import { generateRandomPassword } from "../../utils/password.js";
+import type { ChangePasswordInput, LoginInput, RegisterInput } from "./schema.js";
 
-interface UserClaims {
+interface TokenUser {
   id: number;
-  email: string;
   roleId: number | null;
+  roleName: string | null;
 }
 
 interface PublicUser {
@@ -35,13 +38,13 @@ function toPublicUser(user: PublicUser): PublicUser {
   };
 }
 
-async function issueTokens(user: UserClaims) {
-  const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
+async function issueTokens(user: TokenUser) {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      tokenHash: hashToken(refreshToken),
       userId: user.id,
       expiresAt: new Date(Date.now() + getRefreshExpiryMs()),
     },
@@ -56,7 +59,8 @@ export async function register(data: RegisterInput) {
 
   const participantRole = await prisma.role.findUnique({ where: { name: "Calon Peserta" } });
 
-  const passwordHash = await hashPassword(data.password);
+  const plainPassword = generateRandomPassword();
+  const passwordHash = await hashPassword(plainPassword);
   const user = await prisma.user.create({
     data: {
       name: data.name,
@@ -67,6 +71,8 @@ export async function register(data: RegisterInput) {
     },
   });
 
+  sendCredentialEmail(user.email, plainPassword);
+
   return toPublicUser(user);
 }
 
@@ -76,11 +82,15 @@ export async function login(data: LoginInput) {
     include: { role: true },
   });
 
-  if (!user) throw new AppError(401, "Email atau password salah");
-  const ok = await verifyPassword(data.password, user.passwordHash);
-  if (!ok) throw new AppError(401, "Email atau password salah");
+  if (!user || !user.isActive || !(await comparePassword(data.password, user.passwordHash))) {
+    throw new AppError(401, "Email atau password salah");
+  }
 
-  const tokens = await issueTokens({ id: user.id, email: user.email, roleId: user.roleId });
+  const tokens = await issueTokens({
+    id: user.id,
+    roleId: user.roleId,
+    roleName: user.role?.name ?? null,
+  });
 
   return { ...tokens, user: toPublicUser(user) };
 }
@@ -95,22 +105,101 @@ export async function refresh(refreshToken: string) {
 
   if (payload.type !== "refresh") throw new AppError(401, "Token bukan refresh token");
 
-  const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashToken(refreshToken) },
+  });
   if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
     throw new AppError(401, "Refresh token tidak valid atau sudah digunakan");
   }
 
-  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-  if (!user) throw new AppError(401, "User tidak ditemukan");
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    include: { role: true },
+  });
+  if (!user || !user.isActive) throw new AppError(401, "User tidak aktif atau tidak ditemukan");
 
   await prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
 
-  return issueTokens({ id: user.id, email: user.email, roleId: user.roleId });
+  return issueTokens({
+    id: user.id,
+    roleId: user.roleId,
+    roleName: user.role?.name ?? null,
+  });
 }
 
 export async function logout(refreshToken: string) {
   await prisma.refreshToken.updateMany({
-    where: { token: refreshToken, revokedAt: null },
+    where: { tokenHash: hashToken(refreshToken), revokedAt: null },
     data: { revokedAt: new Date() },
   });
+}
+
+export async function changePassword(userId: number, data: ChangePasswordInput) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError(404, "User tidak ditemukan");
+
+  const ok = await comparePassword(data.oldPassword, user.passwordHash);
+  if (!ok) throw new AppError(400, "Password lama salah");
+
+  const passwordHash = await hashPassword(data.newPassword);
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+    prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+}
+
+export async function getMe(userId: number) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      roleId: true,
+      isActive: true,
+      isInternal: true,
+      createdAt: true,
+      role: {
+        select: {
+          name: true,
+          menus: {
+            select: {
+              menuId: true,
+              canRead: true,
+              canWrite: true,
+              menu: { select: { name: true, path: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) throw new AppError(404, "User tidak ditemukan");
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    roleId: user.roleId,
+    isActive: user.isActive,
+    isInternal: user.isInternal,
+    createdAt: user.createdAt,
+    role: user.role
+      ? {
+          name: user.role.name,
+          menus: user.role.menus.map((m) => ({
+            id: m.menuId,
+            name: m.menu.name,
+            path: m.menu.path,
+            canRead: m.canRead,
+            canWrite: m.canWrite,
+          })),
+        }
+      : null,
+  };
 }

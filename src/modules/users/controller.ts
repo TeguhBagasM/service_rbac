@@ -1,12 +1,20 @@
 import type { Request, Response } from "express";
-import { sendSuccess } from "../../utils/response.js";
 import { AppError } from "../../utils/AppError.js";
+import { sendSuccess } from "../../utils/response.js";
 import { createUser, getUserById, listUsers, removeUser, updateUser } from "./service.js";
 import type { CreateUserInput, UpdateUserInput } from "./schema.js";
 
+function getAuthenticatedUserId(req: Request): number {
+  const userId = req.user?.id;
+  if (userId === undefined) throw new AppError(401, "Unauthorized");
+  return userId;
+}
+
 export async function listUsersHandler(req: Request, res: Response) {
-  const users = await listUsers();
-  sendSuccess(res, "Daftar user", users);
+  const page = Number(req.query.page ?? 1);
+  const limit = Number(req.query.limit ?? 10);
+  const { users, pagination } = await listUsers(page, limit);
+  sendSuccess(res, "Daftar user", { users, pagination });
 }
 
 export async function getUserHandler(req: Request, res: Response) {
@@ -17,22 +25,21 @@ export async function getUserHandler(req: Request, res: Response) {
 
 export async function createUserHandler(req: Request, res: Response) {
   const body = req.body as CreateUserInput;
-  const user = await createUser(body, true);
-  sendSuccess(res, "User internal dibuat", user, 201);
+  const user = await createUser(body);
+  sendSuccess(res, "User internal dibuat, kredensial dikirim ke email user", user, 201);
 }
 
 export async function updateUserHandler(req: Request, res: Response) {
   const id = Number(req.params.id);
+  const actorId = getAuthenticatedUserId(req);
   const body = req.body as UpdateUserInput;
-  const user = await updateUser(id, body);
+  const user = await updateUser(id, actorId, body);
   sendSuccess(res, "User diperbarui", user);
 }
 
 export async function removeUserHandler(req: Request, res: Response) {
   const id = Number(req.params.id);
-  if (req.user?.id === id) {
-    throw new AppError(400, "Tidak dapat menghapus akun sendiri");
-  }
-  await removeUser(id);
-  sendSuccess(res, "User dihapus", null);
+  const actorId = getAuthenticatedUserId(req);
+  await removeUser(id, actorId);
+  sendSuccess(res, "User dinonaktifkan", null);
 }

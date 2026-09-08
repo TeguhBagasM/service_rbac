@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../config/prisma.js";
 import { verifyAccessToken } from "../utils/jwt.js";
 
-export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
@@ -27,7 +27,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, email: true, roleId: true, role: { select: { name: true } } },
+    select: { id: true, roleId: true, role: { select: { name: true } } },
   });
 
   if (!user) {
@@ -37,7 +37,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   req.user = {
     id: user.id,
-    email: user.email,
     roleId: user.roleId,
     roleName: user.role?.name ?? null,
   };
