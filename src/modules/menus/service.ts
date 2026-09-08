@@ -24,3 +24,18 @@ export async function updateMenu(id: number, data: UpdateMenuInput) {
 
   return prisma.menu.update({ where: { id }, data: updates });
 }
+
+export async function removeMenu(id: number) {
+  const menu = await prisma.menu.findUnique({ where: { id } });
+  if (!menu) throw new AppError(404, "Menu tidak ditemukan");
+
+  const accessCount = await prisma.roleMenuAccess.count({ where: { menuId: id } });
+  if (accessCount > 0) {
+    throw new AppError(
+      400,
+      `Menu "${menu.name}" masih dipakai di pengaturan akses oleh ${accessCount} role. Hapus akses menu ini dari semua role terlebih dahulu sebelum menghapus menu.`,
+    );
+  }
+
+  await prisma.menu.delete({ where: { id } });
+}

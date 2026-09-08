@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "../../utils/response.js";
-import { createMenu, listMenus, updateMenu } from "./service.js";
+import { createMenu, listMenus, removeMenu, updateMenu } from "./service.js";
 import type { CreateMenuInput, UpdateMenuInput } from "./schema.js";
 
 export async function listMenusHandler(req: Request, res: Response) {
@@ -19,4 +19,10 @@ export async function updateMenuHandler(req: Request, res: Response) {
   const body = req.body as UpdateMenuInput;
   const menu = await updateMenu(id, body);
   sendSuccess(res, "Menu diperbarui", menu);
+}
+
+export async function removeMenuHandler(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  await removeMenu(id);
+  sendSuccess(res, "Menu dihapus", null);
 }
