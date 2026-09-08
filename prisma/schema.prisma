@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  isInternal   Boolean  @default(false) @map("is_internal")
+  roleId       Int?     @map("role_id")
+  role         Role?    @relation(fields: [roleId], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+  menus RoleMenuAccess[]
+
+  @@map("roles")
+}
+
+model Menu {
+  id    Int    @id @default(autoincrement())
+  name  String
+  path  String
+  roles RoleMenuAccess[]
+
+  @@map("menus")
+}
+
+model RoleMenuAccess {
+  roleId   Int  @map("role_id")
+  menuId   Int  @map("menu_id")
+  canRead  Boolean @default(false) @map("can_read")
+  canWrite Boolean @default(false) @map("can_write")
+
+  role Role @relation(fields: [roleId], references: [id])
+  menu Menu @relation(fields: [menuId], references: [id])
+
+  @@id([roleId, menuId])
+  @@map("role_menu_access")
+}
