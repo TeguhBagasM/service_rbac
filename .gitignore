@@ -5,6 +5,16 @@ node_modules/
 dist/
 build/
 
+# Prisma CLI-generated config seed artifacts (npm run db:* emits these)
+prisma.config.js
+prisma.config.js.map
+prisma.config.d.ts
+prisma.config.d.ts.map
+prisma/seed.js
+prisma/seed.js.map
+prisma/seed.d.ts
+prisma/seed.d.ts.map
+
 # Environment / secrets
 .env
 .env.*

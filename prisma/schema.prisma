@@ -7,14 +7,15 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  isInternal   Boolean  @default(false) @map("is_internal")
-  roleId       Int?     @map("role_id")
-  role         Role?    @relation(fields: [roleId], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
+  id             Int            @id @default(autoincrement())
+  name           String
+  email          String         @unique
+  passwordHash   String         @map("password_hash")
+  isInternal     Boolean        @default(false) @map("is_internal")
+  roleId         Int?           @map("role_id")
+  role           Role?          @relation(fields: [roleId], references: [id])
+  refreshTokens  RefreshToken[]
+  createdAt      DateTime       @default(now()) @map("created_at")
 
   @@map("users")
 }
@@ -48,4 +49,17 @@ model RoleMenuAccess {
 
   @@id([roleId, menuId])
   @@map("role_menu_access")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(512)
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

@@ -1,0 +1,254 @@
+### =========================================================
+### SERVICE RBAC — REST Client Test File
+### Extension VSCode yang dibutuhkan: "REST Client" (humao.rest-client)
+### Cara pakai: klik "Send Request" di atas tiap blok, urut dari atas ke bawah.
+### Setelah login, copy accessToken ke variable @token di bawah supaya request
+### yang butuh auth otomatis terpakai.
+### =========================================================
+
+@baseUrl = http://localhost:5001/rbac
+@apiRoot = http://localhost:5001
+@token = ISI_ACCESS_TOKEN_SETELAH_LOGIN
+@refreshToken = ISI_REFRESH_TOKEN_SETELAH_LOGIN
+
+### -------------------------------------------------------
+### HEALTH CHECK
+### -------------------------------------------------------
+
+### Cek service hidup (health ada di root, bukan di bawah /rbac)
+GET {{apiRoot}}/health
+
+
+### -------------------------------------------------------
+### AUTH — Register, Login, Refresh, Logout, Change Password
+### -------------------------------------------------------
+
+### Register applicant baru
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Teguh Bagas Test",
+  "email": "teguh@test.com",
+  "password": "password123"
+}
+
+
+### Register dengan email yang sudah ada (harus 409, bukan 500)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Duplikat Test",
+  "email": "teguh@test.com",
+  "password": "password123"
+}
+
+
+### Login (isi password sesuai yang muncul di console log mock email)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@beasiswa.test",
+  "password": "Admin@123"
+}
+
+
+### Login dengan password salah (harus 401 pesan generik)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@beasiswa.test",
+  "password": "passwordSalah123"
+}
+
+
+### Ambil profil sendiri (butuh token)
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{token}}
+
+
+### Refresh access token
+POST {{baseUrl}}/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+
+### Ganti password (butuh token, akan revoke semua refresh token lain)
+POST {{baseUrl}}/auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "oldPassword": "PASSWORD_LAMA",
+  "newPassword": "PasswordBaruAman123!"
+}
+
+
+### Logout (revoke refresh token yang dipakai)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+
+### -------------------------------------------------------
+### USERS — Admin only (login sebagai admin dulu, isi @token dengan token admin)
+### -------------------------------------------------------
+
+### List semua user (pagination)
+GET {{baseUrl}}/users?page=1&limit=10
+Authorization: Bearer {{token}}
+
+
+### Admin membuat user internal baru (verifikator/lembaga_seleksi/admin)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Verifikator Satu",
+  "email": "[email protected]",
+  "roleId": 2
+}
+
+
+### Detail user tertentu
+GET {{baseUrl}}/users/2
+Authorization: Bearer {{token}}
+
+
+### Update user (nama, role, status aktif)
+PUT {{baseUrl}}/users/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Verifikator Satu Updated",
+  "roleId": 2,
+  "isActive": true
+}
+
+
+### Nonaktifkan user (soft delete)
+DELETE {{baseUrl}}/users/2
+Authorization: Bearer {{token}}
+
+
+### Test proteksi: admin coba nonaktifkan akun sendiri (harus ditolak 400)
+DELETE {{baseUrl}}/users/1
+Authorization: Bearer {{token}}
+
+
+### Test proteksi role: coba akses endpoint admin pakai token applicant (harus 403)
+GET {{baseUrl}}/users
+Authorization: Bearer ISI_TOKEN_APPLICANT_DISINI
+
+
+### -------------------------------------------------------
+### ROLES — Admin only
+### -------------------------------------------------------
+
+### List semua role
+GET {{baseUrl}}/roles
+Authorization: Bearer {{token}}
+
+
+### Buat role baru
+POST {{baseUrl}}/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "reviewer_khusus"
+}
+
+
+### Update nama role
+PUT {{baseUrl}}/roles/5
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "reviewer_khusus_updated"
+}
+
+
+### Hapus role (harus gagal 400 kalau masih dipakai user)
+DELETE {{baseUrl}}/roles/5
+Authorization: Bearer {{token}}
+
+
+### -------------------------------------------------------
+### MENUS — Admin only
+### -------------------------------------------------------
+
+### List semua menu
+GET {{baseUrl}}/menus
+Authorization: Bearer {{token}}
+
+
+### Buat menu baru
+POST {{baseUrl}}/menus
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Data Master Beasiswa",
+  "path": "/admin/data-master/beasiswa"
+}
+
+
+### Update menu
+PUT {{baseUrl}}/menus/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Data Master Beasiswa Updated",
+  "path": "/admin/data-master/beasiswa"
+}
+
+
+### Hapus menu (harus gagal 400 kalau masih dipakai di role_menu_access)
+DELETE {{baseUrl}}/menus/1
+Authorization: Bearer {{token}}
+
+
+### -------------------------------------------------------
+### ROLE-MENU ACCESS — Admin only
+### -------------------------------------------------------
+
+### Lihat akses menu untuk role tertentu
+GET {{baseUrl}}/roles/2/menus
+Authorization: Bearer {{token}}
+
+
+### Set/replace akses menu untuk role tertentu (transaction: hapus lama, insert baru)
+PUT {{baseUrl}}/roles/2/menus
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  { "menuId": 1, "canRead": true, "canWrite": false },
+  { "menuId": 2, "canRead": true, "canWrite": true }
+]
+
+
+### Test validasi: kirim menuId yang tidak exist (harus 400, bukan crash)
+PUT {{baseUrl}}/roles/2/menus
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  { "menuId": 9999, "canRead": true, "canWrite": false }
+]
